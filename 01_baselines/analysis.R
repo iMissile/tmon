@@ -1,3 +1,5 @@
+
+setwd(paste(getwd(),"/tMon scripts - github/01_baselines/", sep=""))
 # https://support.rstudio.com/hc/en-us/articles/200532197-Character-Encoding
 rm(list=ls()) # очистим все переменные
 
@@ -263,6 +265,7 @@ reconstruct.point <- function (predict.date) {
   # день надо выбирать
   day_fit <- days.fit[days.fit$nwday == nwday, ]
   av.load <- as.numeric(day_fit$slope) * as.numeric(p.date) + as.numeric(day_fit$intercept)
+
   
   # согласно группе часа используем модификатор среднего.
   # модификатор левой границы
@@ -270,10 +273,19 @@ reconstruct.point <- function (predict.date) {
   regr.row <- regr_hdata[regr_hdata$hgroup == p.hour.l & regr_hdata$nwday == nwday, ] # мы полагаем, что регрессионные данные отсортированы по часовым группам + индексация идет с 1
   # regr_hdata[p.hour + 1, ] # мы полагаем, что регрессионные данные отсортированы по часовым группам + индексация идет с 1
   modif.l <- regr.row$slope * as.numeric(p.date) + regr.row$intercept
+
   # модификатор правой границы
   regr.row <- regr_hdata[regr_hdata$hgroup == p.hour.r & regr_hdata$nwday == nwday, ] # мы полагаем, что регрессионные данные отсортированы по часовым группам + индексация идет с 1
   # regr_hdata[p.hour + 1, ] # мы полагаем, что регрессионные данные отсортированы по часовым группам + индексация идет с 1
   modif.r <- regr.row$slope * as.numeric(p.date) + regr.row$intercept
+  
+  #akon
+  #print(nwday)
+  #print(p.hour.l)
+  #print(modif.l)
+  #print(modif.r)
+  #end akon
+  
   
   # теперь переходим на 15-ти минутные интервалы и пропорцию
   dm <- floor(lubridate::minute(predict.date) / 15) * 15
@@ -281,6 +293,7 @@ reconstruct.point <- function (predict.date) {
   
   modif <- modif.l + (modif.r - modif.l) * (as.numeric(walk) / 15)
   p.load <- av.load * modif
+  #p.load <-  modif
   
   # Если мы переходим к
   # долям часа, то возникает беда, связанная с гребенкой, когда три 5-ти
@@ -326,7 +339,7 @@ print(wday(predict.date))
 day_raw_plot(predict.date+weeks(3)+days(1), data = sampledata)
 
 #----
-s_date <- ymd("2015-04-01", tz = "Europe/Moscow")
+s_date <- ymd("2015-04-18", tz = "Europe/Moscow")
 e_date <- s_date + days(1) #17
 testdata <- dplyr::filter(sampledata, s_date < timestamp & timestamp < e_date)
 
