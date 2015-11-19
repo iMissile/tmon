@@ -1,5 +1,5 @@
 
-setwd(paste(getwd(),"/tMon scripts - github/01_baselines/", sep=""))
+# setwd(paste(getwd(),"/tMon scripts - github/01_baselines/", sep=""))
 # https://support.rstudio.com/hc/en-us/articles/200532197-Character-Encoding
 rm(list=ls()) # очистим все переменные
 # suppressPackageStartupMessages(library(fields))
@@ -214,9 +214,8 @@ for (prognosis.nwday in 1:7) # день недели на который мы будем расчитывать прогн
   regr_day$nwday <- prognosis.nwday
   #req <- plyr::ddply(df8, .(hgroup), lm_eqn)
   
-  # dplyr::bind_rows(regr_hdata, regr_day) # добавили вычисления по еще одному дню
-  # и так все равно warning, причем 7 штук: In rbind_all(out[[1]]) : Unequal factor levels: coercing to character
-  regr_hdata <- rbind(regr_hdata, regr_day) # https://stat.ethz.ch/pipermail/r-help/2006-June/107734.html
+  regr_hdata %<>% bind_rows(regr_day) # добавили вычисления по еще одному дню
+  # regr_hdata <- rbind(regr_hdata, regr_day) # https://stat.ethz.ch/pipermail/r-help/2006-June/107734.html
 }
 
 loginfo('regression analysis finished')
@@ -303,6 +302,44 @@ reconstruct.point <- function (predict.date) {
   as.numeric(p.load) # если оставить NA. то не работает melt. Can't melt data.frames with non-atomic 'measure' columns
 }
 
+
+# Оптимизированная функция предсказания по модели
+# На вход подаём датафрейм со столбцом timestamp
+reconstruct.df <- function(sample_df){
+  Calc_av_load <- function(df){
+    nw_day <- df$nw_day[1]
+    day_fit <- days.fit %>% filter(nwday == nw_day)
+    df %<>% mutate(av.load = day_fit$slope * as.numeric(p.date) + day_fit$intercept)
+    return(df)
+  }
+  
+  Calc_hour_factor <- function(df){
+    nw_day <- df$nw_day[1]
+    p.hour.l <- df$p.hour.l[1]
+    p.hour.r <- df$p.hour.r[1]
+    regr.row.l <- regr_hdata %>% filter(hgroup == p.hour.l & nwday == nw_day)
+    regr.row.r <- regr_hdata %>% filter(hgroup == p.hour.r & nwday == nw_day)
+    #browser()
+    df %<>% mutate(modif.l = regr.row.l$slope * as.numeric(p.date) + regr.row.l$intercept,
+                   modif.r = regr.row.r$slope * as.numeric(p.date) + regr.row.r$intercept,
+                   dm = floor(minute(timestamp) / 15) * 15,
+                   walk = difftime(timestamp, (floor_date(timestamp, "hour") + minutes(dm)), units = "mins"),
+                   modif = modif.l + (modif.r - modif.l) * (as.numeric(walk) / 15),
+                   p.load = av.load * modif)
+    df %<>% select(timestamp, p.load)
+    return(df)
+  }
+  
+  sample_df %<>% mutate(p.hour.l = hgroup.enum(timestamp),
+                        p.hour.r = hgroup.enum(timestamp + minutes(15)),
+                        p.date = floor_date(timestamp, "day"),
+                        nw_day = wday(timestamp))
+  sample_df %<>% group_by(nw_day) %>% do(Calc_av_load(.)) %>% ungroup()
+  sample_df %<>% group_by(nw_day, p.hour.l) %>% do(Calc_hour_factor(.)) %>% ungroup()
+  sample_df %<>% select(timestamp, p.load) %>% arrange(timestamp)
+  return(sample_df)
+}
+
 predict.date <- dmy_hm("01.04.2015 0:30", tz = "Europe/Moscow")
 
 # прогоним теперь по всему набору данных, сделаем дополнительную колонку
@@ -328,10 +365,14 @@ print("Reconstructing baseline")
 # sampledata <- dplyr::sample_frac(subdata, 0.2, replace = FALSE) #20%
 sampledata <- subdata
 
-system.time(baseline.val <- lapply(sampledata$timestamp, reconstruct.point))
+### реконструкция с помощью функции reconstruct.point для каждой точки отдельно
+# system.time(baseline.val <- lapply(sampledata$timestamp, reconstruct.point))
 # получается ~ 60мс на точку
 
-sampledata$baseline <- as.numeric(baseline.val)
+### реконструкция с помощью функции reconstruct.df
+baseline.val <- reconstruct.df(sampledata["timestamp"])$p.load
+
+sampledata$baseline <- baseline.val
 # вот пока не поставил принудительно as.numeric (хотя везде внутри так и стояло, melt работать отказывался)
 # Can't melt data.frames with non-atomic 'measure' columns
 
