@@ -306,6 +306,8 @@ reconstruct.point <- function (predict.date) {
 # Оптимизированная функция предсказания по модели
 # На вход подаём датафрейм со столбцом timestamp
 reconstruct.df <- function(sample_df){
+  
+  # на вход кусок данных с одинаковыми днями недели
   Calc_av_load <- function(df){
     nw_day <- df$nw_day[1]
     day_fit <- days.fit %>% filter(nwday == nw_day)
@@ -313,6 +315,7 @@ reconstruct.df <- function(sample_df){
     return(df)
   }
   
+  # на вход кусок данных с одинаковыми днями недели и часовым интервалом
   Calc_hour_factor <- function(df){
     nw_day <- df$nw_day[1]
     p.hour.l <- df$p.hour.l[1]
@@ -330,11 +333,14 @@ reconstruct.df <- function(sample_df){
     return(df)
   }
   
+  # определяем нужные параметры по timestamp
   sample_df %<>% mutate(p.hour.l = hgroup.enum(timestamp),
                         p.hour.r = hgroup.enum(timestamp + minutes(15)),
                         p.date = floor_date(timestamp, "day"),
                         nw_day = wday(timestamp))
+  # группируем по дням недели и прогнозируем среднедневной трафик
   sample_df %<>% group_by(nw_day) %>% do(Calc_av_load(.)) %>% ungroup()
+  # группируем по дням недели и часовым группам для прогноза временного модификатора
   sample_df %<>% group_by(nw_day, p.hour.l) %>% do(Calc_hour_factor(.)) %>% ungroup()
   sample_df %<>% select(timestamp, p.load) %>% arrange(timestamp)
   return(sample_df)
