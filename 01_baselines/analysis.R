@@ -77,13 +77,10 @@ if (!file.exists(objdata.filename)){
   # + сделаем раскладку по часовым интервалам
   # http://stackoverflow.com/questions/10705328/extract-hours-and-seconds-from-posixct-for-plotting-purposes-in-r
   # using lubridate::hour and lubridate::minute
-  subdata["date"] <- lapply(subdata["timestamp"], function(x) floor_date(x, "day"))
-  subdata["nwday"] <- lapply(subdata["timestamp"], function(x) wday(x))  # для названий дней недели: label=TRUE
-  #subdata["hgroup"] <- lapply(subdata["timestamp"], function(x) lubridate::hour(x))
-  subdata["hgroup"] <- lapply(subdata["timestamp"], hgroup.enum)
-  subdata["baseline"] <- as.numeric(NA) #NA
-    
-  subdata <- mutate(subdata, textdate = format(date, format = "%d.%m (%a)"))
+  subdata %<>% mutate(date = floor_date(timestamp, "day"),
+                      nwday = wday(timestamp),
+                      hgroup = hgroup.enum(timestamp),
+                      textdate = format(date, format = "%d.%m (%a)"))
   subdata$textdate <- as.factor(subdata$textdate)
   
   # делаем предвычисления по интегральным параметрам
@@ -304,8 +301,8 @@ reconstruct.point <- function (predict.date) {
 
 
 # Оптимизированная функция предсказания по модели
-# На вход подаём датафрейм со столбцом timestamp
-reconstruct.df <- function(sample_df){
+# На вход подаём вектор timestamps
+reconstruct.df <- function(timestamps){
   
   # на вход кусок данных с одинаковыми днями недели
   Calc_av_load <- function(df){
@@ -333,6 +330,7 @@ reconstruct.df <- function(sample_df){
     return(df)
   }
   
+  sample_df <- data_frame(timestamp = timestamps)
   # определяем нужные параметры по timestamp
   sample_df %<>% mutate(p.hour.l = hgroup.enum(timestamp),
                         p.hour.r = hgroup.enum(timestamp + minutes(15)),
@@ -342,8 +340,9 @@ reconstruct.df <- function(sample_df){
   sample_df %<>% group_by(nw_day) %>% do(Calc_av_load(.)) %>% ungroup()
   # группируем по дням недели и часовым группам для прогноза временного модификатора
   sample_df %<>% group_by(nw_day, p.hour.l) %>% do(Calc_hour_factor(.)) %>% ungroup()
+  # выбираем нужные столбцы и сортируем по timestamp
   sample_df %<>% select(timestamp, p.load) %>% arrange(timestamp)
-  return(sample_df)
+  return(sample_df$p.load)
 }
 
 predict.date <- dmy_hm("01.04.2015 0:30", tz = "Europe/Moscow")
@@ -376,7 +375,7 @@ sampledata <- subdata
 # получается ~ 60мс на точку
 
 ### реконструкция с помощью функции reconstruct.df
-baseline.val <- reconstruct.df(sampledata["timestamp"])$p.load
+baseline.val <- reconstruct.df(sampledata$timestamp)
 
 sampledata$baseline <- baseline.val
 # вот пока не поставил принудительно as.numeric (хотя везде внутри так и стояло, melt работать отказывался)
