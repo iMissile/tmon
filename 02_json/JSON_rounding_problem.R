@@ -7,7 +7,7 @@ library(jsonlite)
 
 #test0=getURL('http://tadvisor.dev.tsft.ru/metrica/data/hrNKFiRT/')
 #test1=fromJSON(test0)
-test1=fromJSON("json_test2.JSON")
+test1=fromJSON("import_test.JSON")
 test2=test1
 test2=test1$data
 test2$datetime=(strptime((test1$data$datetime), "%Y-%m-%dT%H:%M:%S"))
