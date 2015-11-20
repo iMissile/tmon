@@ -39,10 +39,10 @@ predict_smooth=c1+ifelse(is.na(c2_smooth$fitted),0,c2_smooth$fitted)*subdata2[c(
 #lines(predict_smooth[1900:2876],col='red')
 
 #вычисление ошибки на тестовых данных
-#err=abs(tail(subdata2$value,test_t)-tail(predict,test_t))
-#SM=sum(err)
-#SS=sum(err*err)
+err=abs(tail(subdata2$value,test_t)-tail(predict,test_t))
+SM=sum(err)
+SS=sum(err*err)
 
-#err_smooth=abs(tail(subdata2$value,test_t)-tail(predict_smooth,test_t))
-#SM_smooth=sum(err_smooth)
-#SS_smooth=sum(err_smooth*err_smooth)
+err_smooth=abs(tail(subdata2$value,test_t)-tail(predict_smooth,test_t))
+SM_smooth=sum(err_smooth)
+SS_smooth=sum(err_smooth*err_smooth)
