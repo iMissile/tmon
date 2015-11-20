@@ -142,19 +142,11 @@ baseline_raw_plot <- function (df, visual.scale = 0.9) {
   #print(mindev)
   mindev <- 3 # считаем в абсолютных значениях. Максимальная загрузка у нас 100%
   
-  df_baseline <<- df %>%
-    select(timestamp, baseline, value)
-  
-  df_baseline$low <<- unlist(lapply(df$baseline, function(x) max(0, (x - max(x * dev, mindev)) )))
-  df_baseline$up <<- unlist(lapply(df$baseline, function(x) (x + max(x * dev, mindev)) ))
-  
-  # DEBUG
-  df_baseline$dev_delta <<- unlist(lapply(df$baseline, function(x) max(x * dev, mindev) ))
+  df_baseline <- df %>% select(timestamp, baseline, value) %>%
+    mutate(low = pmax(0, (baseline - pmax(baseline * dev, mindev))),
+           up  = baseline + pmax(baseline * dev, mindev),
+           dev_delta = pmax(baseline * dev, mindev)) # DEBUG
 
-# df_baseline <<- df %>%
-#     mutate(low = baseline - max(baseline * dev, mindev),
-#            up = baseline + max(baseline * dev, mindev))
-    
   cpal <- brewer.pal(7, "Blues")
   cpal <- brewer.pal(7, "Oranges")
   cpal <- brewer.pal(7, "Greens")
@@ -163,7 +155,7 @@ baseline_raw_plot <- function (df, visual.scale = 0.9) {
   
   # browser()
   
-  gp <<- ggplot(data = df_open, aes(x = timestamp, y = value)) +
+  gp <- ggplot(data = df_open, aes(x = timestamp, y = value)) +
     theme_bw() +
     theme(legend.position="none") +
     scale_colour_brewer(palette="Dark2") +
@@ -188,7 +180,7 @@ baseline_raw_plot <- function (df, visual.scale = 0.9) {
   
   # %d.%m (%a)  
   
-  gp
+  return(gp)
 }
 
 hgroup.enum <- function(date){
