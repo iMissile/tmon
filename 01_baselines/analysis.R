@@ -32,7 +32,7 @@ basicConfig()
 addHandler(writeToFile, logger="", file="adaptiveB.log")
 
 
-source("funcs.R") # загружаем определения функций, http://adv-r.had.co.nz/Functions.html
+source("funcs.R", encoding="CP1251") # загружаем определения функций, http://adv-r.had.co.nz/Functions.html
 # R Performance. http://adv-r.had.co.nz/Performance.html
 
 
@@ -345,6 +345,39 @@ reconstruct.df <- function(timestamps){
   return(sample_df$p.load)
 }
 
+
+reconstruct.df_fast <- function(timestamps){
+  sample_df <- data_frame(timestamp = timestamps)
+  # определяем нужные параметры по timestamp
+  sample_df %<>% mutate(p.hour.l = hgroup.enum(timestamp),
+                        p.hour.r = hgroup.enum(timestamp + minutes(15)),
+                        p.date = floor_date(timestamp, "day"),
+                        nwday = wday(timestamp))
+  # группируем по дням недели и прогнозируем среднедневной трафик
+  days.fit %<>% select(nwday, intercept, slope) %>%
+      mutate(nwday = as.numeric(nwday))
+
+  sample_df %<>% left_join(days.fit, by = "nwday") %>%
+      mutate(av.load = slope * as.numeric(p.date) + intercept) %>%
+      select(-slope, -intercept)
+  
+  regr_hdata %<>% select(nwday, hgroup, intercept, slope)
+  sample_df %<>% left_join(regr_hdata, by = c("nwday", "p.hour.l" = "hgroup")) %>%
+      mutate(modif.l = slope * as.numeric(p.date) + intercept) %>%
+      select(-slope, -intercept)
+  
+  sample_df %<>% left_join(regr_hdata, by = c("nwday", "p.hour.r" = "hgroup")) %>%
+    mutate(modif.r = slope * as.numeric(p.date) + intercept) %>%
+    select(-slope, -intercept)
+  
+  sample_df %<>% mutate(dm = floor(minute(timestamp) / 15) * 15,
+                        walk = difftime(timestamp, (floor_date(timestamp, "hour") + minutes(dm)), units = "mins"),
+                        modif = modif.l + (modif.r - modif.l) * (as.numeric(walk) / 15),
+                        p.load = av.load * modif)
+  
+  return(sample_df$p.load)
+}
+
 predict.date <- dmy_hm("01.04.2015 0:30", tz = "Europe/Moscow")
 
 # прогоним теперь по всему набору данных, сделаем дополнительную колонку
@@ -375,7 +408,7 @@ sampledata <- subdata
 # получается ~ 60мс на точку
 
 ### реконструкция с помощью функции reconstruct.df
-baseline.val <- reconstruct.df(sampledata$timestamp)
+baseline.val <- reconstruct.df_fast(sampledata$timestamp)
 
 sampledata$baseline <- baseline.val
 # вот пока не поставил принудительно as.numeric (хотя везде внутри так и стояло, melt работать отказывался)
