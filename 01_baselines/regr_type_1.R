@@ -1,6 +1,8 @@
 # построение прогноза для временного ряда на основе многомерной регрессии
 # по результатам тестирования дает неплохой результат, лучше, чем для массива одномерных регрессий
 
+library(lubridate)
+
 subdata2=subdata
 subdata2$nwday=as.factor(subdata2$nwday)
 subdata2$hgroup=as.factor(subdata2$hgroup)
@@ -37,6 +39,10 @@ predict_smooth=c1+ifelse(is.na(c2_smooth$fitted),0,c2_smooth$fitted)*subdata2[c(
 #lines(predict_smooth[1900:2876],col='red')
 
 #вычисление ошибки на тестовых данных
-#a=abs(tail(subdata2$value,test_t)-tail(predict_31,test_t))
-#SM1=sum(a)
-#SS1=sum(a*a)
+#err=abs(tail(subdata2$value,test_t)-tail(predict,test_t))
+#SM=sum(err)
+#SS=sum(err*err)
+
+#err_smooth=abs(tail(subdata2$value,test_t)-tail(predict_smooth,test_t))
+#SM_smooth=sum(err_smooth)
+#SS_smooth=sum(err_smooth*err_smooth)
