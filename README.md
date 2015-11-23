@@ -17,4 +17,8 @@ tmon analytics
 |      две недели (1344)      |      17356ms      |     6155ms     |        132ms        |
 |     четыре недели (2688)    |      34514ms      |     6371ms     |        247ms        |
 
+График:
+
+![](https://github.com/iMissile/tmon/blob/master/images/Reconstruct_optimized.png)
+
 В будущем можно также оптимизировать расчёт коэффициентов регрессии (т.е. заполнение таблиц days.fit и regr_hdata).
