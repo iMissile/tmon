@@ -32,7 +32,7 @@ basicConfig()
 addHandler(writeToFile, logger="", file="adaptiveB.log")
 
 
-source("funcs.R", encoding="CP1251") # загружаем определения функций, http://adv-r.had.co.nz/Functions.html
+source("funcs.R") # загружаем определения функций, http://adv-r.had.co.nz/Functions.html
 # R Performance. http://adv-r.had.co.nz/Performance.html
 
 
