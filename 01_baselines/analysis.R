@@ -47,8 +47,8 @@ addHandler(writeToFile, logger="", file="adaptiveB.log")
 # спецификация аргкментов командной строки (пакет getopt)
 # https://cran.r-project.org/web/packages/getopt/getopt.pdf
 cmdSpec = matrix(c(
-  'importURL', 'i', 2, "string",
-  'exportURL', 'e', 2, "string",
+  'importURL', 'i', 2, "character",
+  'exportURL', 'e', 2, "character",
   'help' , 'h', 0, "logical"), byrow=TRUE, ncol=4)
 
 cmdArgs <- getopt(cmdSpec)
@@ -57,7 +57,7 @@ cmdArgs <- getopt(cmdSpec)
 # if help was asked for print a friendly message
 # and exit with a non-zero error code
 if (!is.null(cmdArgs$help)){
-  cat(getopt(spec, usage=TRUE))
+  cat(getopt(cmdSpec, usage=TRUE))
   q(status=1)
 }
 
