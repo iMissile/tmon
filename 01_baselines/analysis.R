@@ -3,7 +3,7 @@ rm(list=ls()) # очистим все переменные
 # suppressPackageStartupMessages(library(fields))
 
 ############## Значения по умолчанию ##############
-importURL <- ""
+importURL <- "data/bandwidth.JSON"
 exportURL <- ""
 ###################################################
 
@@ -86,62 +86,57 @@ source("funcs.R") # загружаем определения функций, http://adv-r.had.co.nz/Functi
 # http://stackoverflow.com/questions/21370132/r-data-formats-rdata-rda-rds-etc
 # http://www.fromthebottomoftheheap.net/2012/04/01/saving-and-loading-r-objects/
 
-rawdata.filename = "./data/bandwidth.csv" # загрузка указывается в %, интерфейс 1 Гигабит
-objdata.filename = "subdata.rds"
-
-if (!file.exists(objdata.filename)){
-  # файла не существует, проводим расчеты по сырым данным и сохранение фрейма в файл
-  loginfo('loading file %s', rawdata.filename)
-  rawdata <- read_csv(rawdata.filename) # http://barryrowlingson.github.io/hadleyverse/#5
-  problems(rawdata)
-  
-  # удаляем ненужную колонку delta_time
-  
-  # проводим постпроцессинг колонок
-  # колонка delta_time -- артефакт выгрузки из eHealth, промежуток времени между измерениями
-  rawdata$timestamp <-
-    dmy_hms(rawdata$timestamp, truncated = 3, tz = "Europe/Moscow") #допустима неполнота входных данных
-  
-  s_date <- ymd("2015-04-01", tz = "Europe/Moscow")
-  e_date <- s_date + days(60)
-  # выкидываем колонку "delta_time" (от eHealth)
-  subdata <- dplyr::select(rawdata, -delta_time) %>%
-    dplyr::filter(s_date < timestamp & timestamp < e_date)
-  
-  # выбираем значения для анализа
-  subdata <- mutate(subdata, value = bandwidth_in)
-  # а теперь нашпигуем 5-ти минутными интервалами для проверки алгоритма
-  subdata <- generate.discrete(subdata)
-  
-  # для просмотра в табличном виде загрубим данные по дням
-  # http://stackoverflow.com/questions/18503177/r-apply-function-on-specific-dataframe-columns
-  # round_date -- округляет в обе стороны, не очень подходит, нам надо округлять вниз.
-  # + сделаем раскладку по часовым интервалам
-  # http://stackoverflow.com/questions/10705328/extract-hours-and-seconds-from-posixct-for-plotting-purposes-in-r
-  # using lubridate::hour and lubridate::minute
-  subdata %<>% mutate(date = floor_date(timestamp, "day"),
-                      nwday = wday(timestamp),
-                      hgroup = hgroup.enum(timestamp),
-                      textdate = format(date, format = "%d.%m (%a)"))
-  subdata$textdate <- as.factor(subdata$textdate)
-  
-  # делаем предвычисления по интегральным параметрам
-  # из функции получаем распределение интегралов по дням
-  df_integr <- precalc_df()
-  
-  # сохраняем объект
-  saveRDS(subdata, objdata.filename) #, compress = FALSE, ascii = TRUE)
-} else {
-  subdata <- readRDS(objdata.filename)
+# Переделываем исходный CSV-файл в формат JSON
+if (FALSE){
+  CSVrawdata.filename = "./data/bandwidth.csv" # загрузка указывается в %, интерфейс 1 Гигабит
+  dataCSV <- read_csv(CSVrawdata.filename)
+  dataCSV %<>% select(timestamp, value = bandwidth_in) # %>% head(2)
+  params <- list(name = "Bandwidth In (% of interface load)")
+  json_out <- toJSON(list(config = params, data = dataCSV),
+                     na="null", auto_unbox=TRUE, digits=8)
+  write(json_out, file="data/bandwidth.JSON")
 }
 
-if(FALSE){
-# --- реконструкцию делаем на подмножестве, попробуем отловить ошибки)
-subdata <- dplyr::sample_frac(subdata, 0.2, replace = FALSE) %>%
-  arrange(timestamp) # replace = TRUE -- позволяет делать дублирующиеся выборки. = FALSE -- нет
-# посмотрим, есть ли дублирующиеся записи
-subdata %>% group_by(timestamp) %>% filter(n()>1) %>% summarize(n=n())
-}
+# Загружаем JSON
+loginfo("Loading JSON from %s", importURL)
+# Пробуем загрузить JSON в rawdata. При неудаче выдаём в лог ошибку и прекращаем выполнение
+tryCatch({
+    rawdata <- fromJSON(importURL)
+  }, error = function(err){
+    logerror("Не удалось загрузить JSON. Описание ошибки:")
+    logerror(err)
+    q(status=1)
+  })
+
+# Выделяем описание и данные из прочтённого JSON
+params <- rawdata$config
+subdata <- rawdata$data
+
+# проводим постпроцессинг колонок
+subdata$timestamp <-
+  dmy_hms(subdata$timestamp, truncated = 3, tz = "Europe/Moscow") #допустима неполнота входных данных
+# Фильтр по дате
+# s_date <- ymd("2015-04-01", tz = "Europe/Moscow")
+# e_date <- s_date + days(60)
+# subdata %<>% filter(s_date <= timestamp & timestamp <= e_date)
+# а теперь нашпигуем 15-ти минутными интервалами для проверки алгоритма
+subdata <- generate.discrete(subdata)
+
+# для просмотра в табличном виде загрубим данные по дням
+# http://stackoverflow.com/questions/18503177/r-apply-function-on-specific-dataframe-columns
+# round_date -- округляет в обе стороны, не очень подходит, нам надо округлять вниз.
+# + сделаем раскладку по часовым интервалам
+# http://stackoverflow.com/questions/10705328/extract-hours-and-seconds-from-posixct-for-plotting-purposes-in-r
+# using lubridate::hour and lubridate::minute
+subdata %<>% mutate(date = floor_date(timestamp, "day"),
+                    nwday = wday(timestamp),
+                    hgroup = hgroup.enum(timestamp),
+                    textdate = format(date, format = "%d.%m (%a)"))
+subdata$textdate <- as.factor(subdata$textdate)
+
+# делаем предвычисления по интегральным параметрам
+# из функции получаем распределение интегралов по дням
+df_integr <- precalc_df()
 
 #==================  загрузка и предобработка закончилась, пошла аналитика =============
 
