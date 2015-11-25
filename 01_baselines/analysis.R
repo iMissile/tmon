@@ -1,8 +1,11 @@
-
-# setwd(paste(getwd(),"/tMon scripts - github/01_baselines/", sep=""))
 # https://support.rstudio.com/hc/en-us/articles/200532197-Character-Encoding
 rm(list=ls()) # очистим все переменные
 # suppressPackageStartupMessages(library(fields))
+
+############## «начени€ по умолчанию ##############
+importURL <- ""
+exportURL <- ""
+###################################################
 
 #library(plyr)
 library(dplyr)
@@ -24,12 +27,51 @@ library(caTools)
 library(jsonlite)
 library(logging)
 library(broom)
+# ƒл€ парсинга строки с аргументами используем пакет getopt
+library(getopt)
 
 options(warn = 2)
 
 
 basicConfig()
 addHandler(writeToFile, logger="", file="adaptiveB.log")
+
+
+# «агружаем аргументы из командной строки со ссылками на загрузку и выгрузку данных
+# http://www.r-bloggers.com/including-arguments-in-r-cmd-batch-mode/
+# http://stackoverflow.com/questions/14167178/passing-command-line-arguments-to-r-cmd-batch
+# http://stackoverflow.com/questions/4547789/command-line-arguments-in-bash-to-rscript
+# ¬ызываем скрипт из Linux консоли следующим образом:
+# Rscript "analysis.R" --args "importURL=... exportURL=..." (надо проверить на Linux!!!!!!)
+
+# спецификаци€ аргкментов командной строки (пакет getopt)
+# https://cran.r-project.org/web/packages/getopt/getopt.pdf
+cmdSpec = matrix(c(
+  'importURL', 'i', 2, "string",
+  'exportURL', 'e', 2, "string",
+  'help' , 'h', 0, "logical"), byrow=TRUE, ncol=4)
+
+cmdArgs <- getopt(cmdSpec)
+
+# јнализируем аргументы
+# if help was asked for print a friendly message
+# and exit with a non-zero error code
+if (!is.null(cmdArgs$help)){
+  cat(getopt(spec, usage=TRUE))
+  q(status=1)
+}
+
+if (is.null(cmdArgs$importURL)){
+  logwarn("Using default value for importURL (%s)", importURL)
+} else {
+  importURL <- cmdArgs$importURL
+}
+
+if (is.null(cmdArgs$exportURL)){
+  logwarn("Using default value for exportURL (%s)", exportURL)
+} else {
+  exportURL <- cmdArgs$exportURL
+}
 
 
 source("funcs.R") # загружаем определени€ функций, http://adv-r.had.co.nz/Functions.html
@@ -123,7 +165,7 @@ subdata.f <-
 subdata <- subdata.f
 
 # *********************** математика началась ******************************
-print("Start Math")
+loginfo("Start Math")
 # Start the clock!
 ptm <- proc.time()
 
@@ -219,7 +261,7 @@ loginfo('regression analysis finished')
 
 # Stop the clock
 proc.time() - ptm
-print("End Math")
+loginfo("End Math")
 # *********************** математика закончилась ******************************
 
 # выберем вторник-четверг дл€ большей репрезентативности (данных больше)
@@ -395,7 +437,7 @@ predict.date <- dmy_hm("01.04.2015 0:30", tz = "Europe/Moscow")
 # http://nicercode.github.io/guides/repeating-things/
 # https://cran.r-project.org/doc/manuals/R-intro.html#Lists-and-data-frames
 
-print("Reconstructing baseline")
+loginfo("Reconstructing baseline")
 # !!!! lapply не проканал как ["timestamp"], но вз€л как $timestamp
 # надо смотреть структуру через dput. ¬ случае $ получаем список, в случае [""] получать data.frame
 
