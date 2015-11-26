@@ -27,7 +27,13 @@ LoadPkg <- function(LibName){
   suppressMessages(require(LibName, character.only = TRUE))
 }
 
-sapply(needed_packages, LoadPkg)
+is_loaded <- sapply(needed_packages, LoadPkg)
+if (! all(is_loaded)){
+  failed_load <- needed_packages[! is_loaded]
+  cat(paste("Failed to load these R packages:",
+            failed_load))
+  q(status = 1)
+}
 
 options(warn = 2)
 
