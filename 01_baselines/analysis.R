@@ -3,8 +3,9 @@ rm(list=ls()) # очистим все переменные
 # suppressPackageStartupMessages(library(fields))
 
 ############## Значения по умолчанию ##############
-importURL <- "data/bandwidth.JSON"
-exportURL <- ""
+importURL <- "data/bandwidth.JSON" # локальный файл
+importURL <- "http://192.168.144.105:8080/HFS/bandwidth.JSON" # веб-сервер
+exportURL <- "http://192.168.144.105:8080/HFS/"
 ###################################################
 
 #library(plyr)
@@ -29,6 +30,8 @@ library(logging)
 library(broom)
 # Для парсинга строки с аргументами используем пакет getopt
 library(getopt)
+# Для отправки JSON на сервер через postForm
+library(RCurl)
 
 options(warn = 2)
 
@@ -93,7 +96,7 @@ if (FALSE){
   dataCSV %<>% select(timestamp, value = bandwidth_in) # %>% head(2)
   params <- list(name = "Bandwidth In (% of interface load)")
   json_out <- toJSON(list(config = params, data = dataCSV),
-                     na="null", auto_unbox=TRUE, digits=8)
+                     na="null", pretty=TRUE, auto_unbox=TRUE, digits=8)
   write(json_out, file="data/bandwidth.JSON")
 }
 
@@ -448,42 +451,70 @@ sampledata <- subdata
 baseline.val <- reconstruct.df_fast(sampledata$timestamp)
 
 sampledata$baseline <- baseline.val
-# вот пока не поставил принудительно as.numeric (хотя везде внутри так и стояло, melt работать отказывался)
-# Can't melt data.frames with non-atomic 'measure' columns
 
-#reconstruct.point(predict.date)
-print(wday(predict.date))
-day_raw_plot(predict.date+weeks(3)+days(1), data = sampledata)
+# считаем верхний и нижний уровень допустимых значений
+dev <- .15 # 15%
+#mindev <- max(df$baseline, na.rm = TRUE) * .05
+#print(mindev)
+mindev <- 3 # считаем в абсолютных значениях. Максимальная загрузка у нас 100%
+
+sampledata %<>% mutate(low = pmax(0, (baseline - pmax(baseline * dev, mindev))),
+         up  = baseline + pmax(baseline * dev, mindev),
+         dev_delta = pmax(baseline * dev, mindev)) # DEBUG
+
+# reconstruct.point(predict.date)
+# print(wday(predict.date))
+# day_raw_plot(predict.date+weeks(3)+days(1), data = sampledata)
+
+# экспорт JSON
+export_params <- list(name = params$name, line = "baseline", fill = c("low", "up"))
+export_data <- sampledata %>% select(timestamp, baseline, low, up)
+export_json <- toJSON(list(config = export_params, data = export_data),
+                      pretty=TRUE, auto_unbox=TRUE, digits=8, na="null")
+
+loginfo("Exporting JSON to %s", exportURL)
+# Пробуем загрузить JSON в rawdata. При неудаче выдаём в лог ошибку и прекращаем выполнение
+tryCatch({
+    postform <- postForm(exportURL,"fileData" = fileUpload(contents = export_json,
+                                                         contentType = "application/json",
+                                                         filename = "export_test.JSON"))
+  }, error = function(err){
+    logerror("Не удалось экпортировать JSON. Описание ошибки:")
+    logerror(err)
+    q(status=1)
+  })
+
+loginfo("Execution completed")
 
 #----
-s_date <- ymd("2015-04-18", tz = "Europe/Moscow")
-e_date <- s_date + days(1) #17
-testdata <- dplyr::filter(sampledata, s_date < timestamp & timestamp < e_date)
+# s_date <- ymd("2015-04-18", tz = "Europe/Moscow")
+# e_date <- s_date + days(1) #17
+# testdata <- dplyr::filter(sampledata, s_date < timestamp & timestamp < e_date)
+# 
+# baseline_raw_plot(testdata)
+# 
+# jsonF <- toJSON(testdata, pretty=TRUE)
+# write(jsonF, file="export.JSON")
 
-baseline_raw_plot(testdata)
-
-jsonF <- toJSON(testdata, pretty=TRUE)
-write(jsonF, file="export.JSON")
-
-stop("Manual end")
-# =================================================
-
-mm <- filter(df_baseline, abs((baseline-value)/baseline)>.3 & value > 10)
-
-
-s_date <- ymd("2015-04-01", tz = "Europe/Moscow")
-e_date <- s_date + days(10) #17
-testdata <- dplyr::filter(subdata, s_date < timestamp & timestamp < e_date)
-
-gp <- baseline_raw_plot(testdata, 12.3)
-
-# Open a new png device to print the figure out to (or use tiff, pdf, etc).
-png(filename = "07. adaptive baseline (history).png", width = 11312, height = 8000, units = 'px')
-print(gp) #end of print statement
-dev.off() #close the png device to save the figure.
-
-write.table(subdata %>% select(timestamp, value, baseline), file = "adaptive_baseline.csv", sep = ",", col.names = NA, qmethod = "double")
-
-#write.xlsx(x = sample.dataframe, file = "test.excelfile.xlsx",
-#           sheetName = "TestSheet", row.names = FALSE)
-
+# stop("Manual end")
+# # =================================================
+# 
+# mm <- filter(df_baseline, abs((baseline-value)/baseline)>.3 & value > 10)
+# 
+# 
+# s_date <- ymd("2015-04-01", tz = "Europe/Moscow")
+# e_date <- s_date + days(10) #17
+# testdata <- dplyr::filter(subdata, s_date < timestamp & timestamp < e_date)
+# 
+# gp <- baseline_raw_plot(testdata, 12.3)
+# 
+# # Open a new png device to print the figure out to (or use tiff, pdf, etc).
+# png(filename = "07. adaptive baseline (history).png", width = 11312, height = 8000, units = 'px')
+# print(gp) #end of print statement
+# dev.off() #close the png device to save the figure.
+# 
+# write.table(subdata %>% select(timestamp, value, baseline), file = "adaptive_baseline.csv", sep = ",", col.names = NA, qmethod = "double")
+# 
+# #write.xlsx(x = sample.dataframe, file = "test.excelfile.xlsx",
+# #           sheetName = "TestSheet", row.names = FALSE)
+# 
