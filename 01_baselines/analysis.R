@@ -8,30 +8,26 @@ importURL <- "http://192.168.144.105:8080/HFS/bandwidth.JSON" # веб-сервер
 exportURL <- "http://192.168.144.105:8080/HFS/"
 ###################################################
 
-#library(plyr)
-library(dplyr)
-library(magrittr)
-library(ggplot2) #load first! (Wickham)
-library(lubridate) #load second!
-library(scales)
-#library(forecast)
-#library(stringr)
-library(RColorBrewer)
-library(wesanderson) # https://github.com/karthik/wesanderson
-library(microbenchmark)
-library(reshape2)
-library(readr) #Hadley Wickham, http://blog.rstudio.org/2015/04/09/readr-0-1-0/
-library(xts)
-library(zoo)
-library(caTools)
-# library(xlsx) # :( rJava - ошибка: No CurrentVersion entry in Software/JavaSoft registry! Try re-installing Java and make sure R and Java have matching architectures
-library(jsonlite)
-library(logging)
-library(broom)
-# Для парсинга строки с аргументами используем пакет getopt
-library(getopt)
-# Для отправки JSON на сервер через postForm
-library(RCurl)
+needed_packages <- c("dplyr", "magrittr", "ggplot2", "lubridate", "scales",
+                     "RColorBrewer", "wesanderson", "microbenchmark", "reshape2",
+                     "readr", "xts", "zoo", "caTools", "jsonlite", "logging",
+                     "broom", "getopt", "RCurl")
+installed_packages <- installed.packages()[,"Package"]
+
+# Перед выполнением скрипта проверяем, все ли нужные пакеты установлены
+is_installed <- needed_packages  %in% installed.packages()
+if (! all(is_installed)){
+  need_install <- needed_packages[! is_installed]
+  cat(paste("In order to use this script you need to install these R packages:",
+            need_install))
+  q(status = 1)
+}
+
+LoadPkg <- function(LibName){
+  suppressMessages(require(LibName, character.only = TRUE))
+}
+
+sapply(needed_packages, LoadPkg)
 
 options(warn = 2)
 
@@ -258,7 +254,8 @@ for (prognosis.nwday in 1:7) # день недели на который мы будем расчитывать прогн
 loginfo('regression analysis finished')
 
 # Stop the clock
-proc.time() - ptm
+pts <- proc.time() - ptm
+# print(pts)
 loginfo("End Math")
 # *********************** математика закончилась ******************************
 
