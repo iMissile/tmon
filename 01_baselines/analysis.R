@@ -1,6 +1,5 @@
 # https://support.rstudio.com/hc/en-us/articles/200532197-Character-Encoding
 rm(list=ls()) # очистим все переменные
-# suppressPackageStartupMessages(library(fields))
 
 ############## Значения по умолчанию ##############
 importURL <- "data/bandwidth.JSON" # локальный файл
@@ -8,6 +7,7 @@ importURL <- "http://192.168.144.105:8080/HFS/bandwidth.JSON" # веб-сервер
 exportURL <- "http://192.168.144.105:8080/HFS/"
 ###################################################
 
+cat("Loading packages...\n")
 needed_packages <- c("dplyr", "magrittr", "ggplot2", "lubridate", "scales",
                      "RColorBrewer", "wesanderson", "microbenchmark", "reshape2",
                      "readr", "xts", "zoo", "caTools", "jsonlite", "logging",
@@ -16,6 +16,7 @@ installed_packages <- installed.packages()[,"Package"]
 
 # Перед выполнением скрипта проверяем, все ли нужные пакеты установлены
 is_installed <- needed_packages  %in% installed.packages()
+# Если установлены не все, то выдаём ошибку
 if (! all(is_installed)){
   need_install <- needed_packages[! is_installed]
   cat(paste("In order to use this script you need to install these R packages:",
@@ -23,11 +24,14 @@ if (! all(is_installed)){
   q(status = 1)
 }
 
+# Функция для загрузки пакета с подавлением вывода сообщений
 LoadPkg <- function(LibName){
   suppressMessages(require(LibName, character.only = TRUE))
 }
 
+# Загружаем пакеты по списку needed_packages
 is_loaded <- sapply(needed_packages, LoadPkg)
+# Выдаём ошибку при неудачной загрузке пакетов
 if (! all(is_loaded)){
   failed_load <- needed_packages[! is_loaded]
   cat(paste("Failed to load these R packages:",
@@ -52,9 +56,9 @@ addHandler(writeToFile, logger="", file="adaptiveB.log")
 # спецификация аргкментов командной строки (пакет getopt)
 # https://cran.r-project.org/web/packages/getopt/getopt.pdf
 cmdSpec = matrix(c(
-  'importURL', 'i', 2, "character",
-  'exportURL', 'e', 2, "character",
-  'help' , 'h', 0, "logical"), byrow=TRUE, ncol=4)
+  "importURL", "i", 2, "character",
+  "exportURL", "e", 2, "character",
+  "help" , "h", 0, "logical"), byrow=TRUE, ncol=4)
 
 cmdArgs <- getopt(cmdSpec)
 
@@ -66,16 +70,20 @@ if (!is.null(cmdArgs$help)){
   q(status=1)
 }
 
+# Если скрипту не были переданы нужные параметры --importURL и --exportURL,
+# то используем значения по умолчанию (полезно для отладки)
 if (is.null(cmdArgs$importURL)){
   logwarn("Using default value for importURL (%s)", importURL)
 } else {
   importURL <- cmdArgs$importURL
+  loginfo("Received importURL (%s)", importURL)
 }
 
 if (is.null(cmdArgs$exportURL)){
   logwarn("Using default value for exportURL (%s)", exportURL)
 } else {
   exportURL <- cmdArgs$exportURL
+  loginfo("Received exportURL (%s)", exportURL)
 }
 
 
@@ -108,8 +116,7 @@ loginfo("Loading JSON from %s", importURL)
 tryCatch({
     rawdata <- fromJSON(importURL)
   }, error = function(err){
-    logerror("Не удалось загрузить JSON. Описание ошибки:")
-    logerror(err)
+    logerror(paste("Не удалось загрузить JSON. Описание ошибки:",err))
     q(status=1)
   })
 
@@ -396,13 +403,14 @@ reconstruct.df_fast <- function(timestamps){
                         p.hour.r = hgroup.enum(timestamp + minutes(15)),
                         p.date = floor_date(timestamp, "day"),
                         nwday = wday(timestamp))
-  # группируем по дням недели и прогнозируем среднедневной трафик
+  # группируем по дням недели и прогнозируем среднесуточный трафик
   days.fit %<>% select(nwday, intercept, slope) %>%
       mutate(nwday = as.numeric(nwday))
 
   sample_df %<>% left_join(days.fit, by = "nwday") %>%
       mutate(av.load = slope * as.numeric(p.date) + intercept) %>%
       select(-slope, -intercept)
+  # browser()
   
   regr_hdata %<>% select(nwday, hgroup, intercept, slope)
   sample_df %<>% left_join(regr_hdata, by = c("nwday", "p.hour.l" = "hgroup")) %>%
@@ -482,8 +490,7 @@ tryCatch({
                                                          contentType = "application/json",
                                                          filename = "export_test.JSON"))
   }, error = function(err){
-    logerror("Не удалось экпортировать JSON. Описание ошибки:")
-    logerror(err)
+    logerror(paste("Не удалось экпортировать JSON. Описание ошибки:", err))
     q(status=1)
   })
 
