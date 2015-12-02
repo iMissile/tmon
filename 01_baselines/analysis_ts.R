@@ -62,7 +62,17 @@ TBatsModel <- function(y, h=2*m){
   return(fc)
 }
 
-TestSample <- function(y, method = FourierArimaLimFc, testsize = 672){
+# STL модель (сезонная декомпозиция)
+STLModel <- function(y, h=2*m){
+  y <- LogTransform(y)
+  y <- ts(y, frequency = m)
+  fit.stl <- stlm(y, method = "ets")
+  fc <- forecast(fit.stl, h=h)
+  fc <- BackForecastTransform(fc)
+  return(fc)
+}
+
+TestSample <- function(y, method = STLModel, testsize = 672){
   trainsize <- length(y) - testsize
   fc <- method(y[1:trainsize], h = testsize)
   
@@ -72,11 +82,11 @@ TestSample <- function(y, method = FourierArimaLimFc, testsize = 672){
   print(paste("Testsample SD Error:", sd_error))
 }
 
-fc <- FourierArimaLimFc(subdata_ts)
-plot(fc)
-hist(fc$fitted - subdata_ts, breaks=50)
+# fc <- STLModel(subdata_ts)
+# plot(fc)
+# hist(fc$fitted - subdata_ts, breaks=50)
 
-TestSample(subdata_ts, method=FourierArimaLimFc)
+TestSample(subdata_ts, method=STLModel)
 
 
 #### Небольшой тест регрессии с LogTransform

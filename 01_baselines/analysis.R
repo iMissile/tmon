@@ -1,3 +1,6 @@
+#!/usr/bin/env Rscript
+# TODO проверить работоспособность скрипта как исполняемого файла
+
 # https://support.rstudio.com/hc/en-us/articles/200532197-Character-Encoding
 rm(list=ls()) # очистим все переменные
 
@@ -15,7 +18,7 @@ needed_packages <- c("dplyr", "magrittr", "ggplot2", "lubridate", "scales",
 installed_packages <- installed.packages()[,"Package"]
 
 # Перед выполнением скрипта проверяем, все ли нужные пакеты установлены
-is_installed <- needed_packages  %in% installed.packages()
+is_installed <- needed_packages  %in% installed_packages
 # Если установлены не все, то выдаём ошибку
 if (! all(is_installed)){
   need_install <- needed_packages[! is_installed]
