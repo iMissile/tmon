@@ -35,6 +35,10 @@ time_series <- data_frame(
   ts9 = GenerateTimeSeries(base = cos(x)+sqrt(x), resid=rnorm(1000), func = function(x) abs(x))
 )
 
+lagged_series <- data_frame(
+  
+)
+
 Smoother <- function(y){
   return(lowess(y, f=0.1)$y)
 }
@@ -104,6 +108,8 @@ shinyServer(function(input, output) {
   
   observeEvent(input$corr_click, {
     vals$CorrMatClick <- nearPoints(CorrMat, input$corr_click, threshold = 500, maxpoints = 1)
+    vals$ts_choice1 <- str_extract(vals$CorrMatClick$Var1, "ts\\d")
+    vals$ts_choice2 <- str_extract(vals$CorrMatClick$Var2, "ts\\d")
   })
   
   output$text1 <- renderPrint({ 
@@ -121,47 +127,44 @@ shinyServer(function(input, output) {
     }
   })
   
-  output$TS1Plot <- renderPlot({
-    ts_choice <- str_extract(vals$CorrMatClick$Var1, "ts\\d")
-    if (length(ts_choice)==0) return(NULL)
-    data <- time_series %>% select(timestamp, starts_with(ts_choice))
-    ggtime <- gather(data, key = "type", value = "value", starts_with("ts")) %>%
-      filter(!str_detect(type, "resid"))
-    # draw plot
-    ggplot(ggtime, aes(x=timestamp, y=value, color=type)) + geom_line() +
-      ggtitle(paste("Временной ряд", ts_choice, "с базовой линией")) + theme_bw()
+  output$CCFPlot <- renderPlot({
+    if (length(vals$ts_choice1)==0) return(NULL)
+    ts1 <- time_series %>% select(get(vals$ts_choice1))
+    ts2 <- time_series %>% select(get(vals$ts_choice2))
+    crossCorr <- ccf(ts1, ts2, lag.max = 16, type = "correlation")
+    # browser()
+    cross_data <- data_frame(Lag = factor(crossCorr$lag[,1,1]), CCF = crossCorr$acf[,1,1])
+    ggplot(cross_data, aes(x = Lag, y = CCF)) +
+      geom_bar(stat="identity", position = "identity", fill = "red") +
+      scale_y_continuous(limits=c(-1, 1)) +
+      theme_bw() + xlab("Временной лаг") + ylab("Коэффициент кросс-корреляции") +
+      ggtitle("График кросс-корреляции")
   })
   
-  output$TS2Plot <- renderPlot({
-    ts_choice <- str_extract(vals$CorrMatClick$Var2, "ts\\d")
-    if (length(ts_choice)==0) return(NULL)
-    data <- time_series %>% select(timestamp, starts_with(ts_choice))
+  output$TSPlot <- renderPlot({
+    if (length(vals$ts_choice1)==0) return(NULL)
+    data <- time_series %>% select(timestamp, starts_with(vals$ts_choice1),
+                                   starts_with(vals$ts_choice2))
     ggtime <- gather(data, key = "type", value = "value", starts_with("ts")) %>%
-      filter(!str_detect(type, "resid"))
+      filter(!str_detect(type, "resid")) %>%
+      mutate(tstype = str_extract(type, "ts\\d"))
+    
     # draw plot
     ggplot(ggtime, aes(x=timestamp, y=value, color=type)) + geom_line() +
-      ggtitle(paste("Временной ряд", ts_choice, "с базовой линией")) + theme_bw()
+      ggtitle(paste("Временной ряд", vals$ts_choice1, "с базовой линией")) + theme_bw() +
+      facet_grid(tstype ~ .) + theme(legend.position = "bottom") +
+      labs(color = "Временной ряд")
   })
 
-  output$R1Plot <- renderPlot({
-    ts_choice <- str_extract(vals$CorrMatClick$Var1, "ts\\d")
-    if (length(ts_choice)==0) return(NULL)
-    data <- time_series %>% select(timestamp, starts_with(ts_choice))
+  output$RPlot <- renderPlot({
+    if (length(vals$ts_choice1)==0) return(NULL)
+    data <- time_series %>% select(timestamp, starts_with(vals$ts_choice1),
+                                   starts_with(vals$ts_choice2))
     ggtime <- gather(data, key = "type", value = "value", starts_with("ts")) %>%
       filter(str_detect(type, "resid"))
     # draw plot
     ggplot(ggtime, aes(x=timestamp, y=value, color=type)) + geom_line() +
-      ggtitle(paste("График отклонений ряда", ts_choice, "от базовой линии")) + theme_bw()
-  })
-  
-  output$R2Plot <- renderPlot({
-    ts_choice <- str_extract(vals$CorrMatClick$Var2, "ts\\d")
-    if (length(ts_choice)==0) return(NULL)
-    data <- time_series %>% select(timestamp, starts_with(ts_choice))
-    ggtime <- gather(data, key = "type", value = "value", starts_with("ts")) %>%
-      filter(str_detect(type, "resid"))
-    # draw plot
-    ggplot(ggtime, aes(x=timestamp, y=value, color=type)) + geom_line() +
-      ggtitle(paste("График отклонений ряда", ts_choice, "от базовой линии")) + theme_bw()
+      ggtitle(paste("График отклонений выбранных рядов от базовой линии")) + theme_bw() +
+      theme(legend.position = "bottom") + labs(color = "Временной ряд")
   })
 })
