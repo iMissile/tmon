@@ -62,7 +62,7 @@ OptimumLag <- function(ts1, ts2){
 
 resp_time <- "ts1"
 metrics <- paste0("ts", 2:9)
-optLags <- numeric(0)
+optLags <- c(ts1 = 0)
 
 with(resid, {
   for (t in metrics){
@@ -183,13 +183,16 @@ shinyServer(function(input, output) {
   
   output$CCFPlot <- renderPlot({
     if (length(vals$l_ts_choice1)==0) return(NULL)
-    ts1 <- time_series %>% select(get(vals$l_ts_choice1))
-    ts2 <- time_series %>% select(get(vals$l_ts_choice2))
+    ts1 <- resid %>% select(get(vals$l_ts_choice1))
+    ts2 <- resid %>% select(get(vals$l_ts_choice2))
+    currentLag <- optLags[vals$l_ts_choice2] - optLags[vals$l_ts_choice1]
     crossCorr <- ccf(ts1, ts2, lag.max = MaxLag, type = "correlation")
     # browser()
-    cross_data <- data_frame(Lag = factor(crossCorr$lag[,1,1]), CCF = crossCorr$acf[,1,1])
-    ggplot(cross_data, aes(x = Lag, y = CCF)) +
-      geom_bar(stat="identity", position = "identity", fill = "red") +
+    col <- rep(0, 2*MaxLag + 1)
+    col[crossCorr$lag[,1,1] == currentLag] <- 1
+    cross_data <- data_frame(Lag = crossCorr$lag[,1,1], CCF = crossCorr$acf[,1,1], col=factor(col))
+    ggplot(cross_data, aes(x = Lag, y = CCF, fill=col)) +
+      geom_bar(stat="identity", position = "identity") +
       scale_y_continuous(limits=c(-1, 1)) +
       xlab("Временной лаг") + ylab("Коэффициент кросс-корреляции") +
       ggtitle("График кросс-корреляции")
