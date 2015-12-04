@@ -99,6 +99,11 @@ CorrMat <- cor(resid)
 CorrMat %<>% #reorder_cormat() %>% 
   round(2) %>% get_upper_tri() %>% melt(na.rm = TRUE)
 
+names(lagged_resid) <- paste0(names(lagged_resid), "_lag_", optLags[names(lagged_resid)])
+laggedCorrMat <- cor(lagged_resid, use = "pairwise.complete.obs")
+laggedCorrMat %<>% #reorder_cormat() %>% 
+  round(2) %>% get_upper_tri() %>% melt(na.rm = TRUE)
+
 theme_set(theme_bw(base_size = 16))
 
 
@@ -116,7 +121,8 @@ shinyServer(function(input, output) {
     # http://www.sthda.com/english/wiki/ggplot2-quick-correlation-matrix-heatmap-r-software-and-data-visualization
     ggplot(CorrMat, aes(Var2, Var1, fill = value)) +
       geom_tile(color = "white") +
-      geom_tile(data = dd, color = "green", size = 2) +
+      #geom_point(color = "black") +
+      geom_tile(data = dd, color = "green", size = 2, fill="green", alpha=0.3) +
       scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
                            midpoint = 0, limit = c(-1,1), space = "Lab", 
                            name="Коэффициент\nкорреляции") +
@@ -142,22 +148,25 @@ shinyServer(function(input, output) {
   output$CorrPlot <- renderPlot({
     dd <- vals$CorrMatClick
     CorrPlot(CorrMat, dd)
-  })
+  }, width = 500, height = 500)
   
   output$laggedCorrPlot <- renderPlot({
-    names(lagged_resid) <- paste0(names(lagged_resid), "_lag_", optLags[names(lagged_resid)])
-    laggedCorrMat <- cor(lagged_resid, use = "pairwise.complete.obs")
-    laggedCorrMat %<>% #reorder_cormat() %>% 
-      round(2) %>% get_upper_tri() %>% melt(na.rm = TRUE)
     dd <- vals$laggedCorrMatClick
     CorrPlot(laggedCorrMat, dd)
-  })
+  }, width = 500, height = 500)
   
   observeEvent(input$corr_click, {
-    vals$CorrMatClick <- nearPoints(CorrMat, input$corr_click, threshold = 500, maxpoints = 1)
+    vals$CorrMatClick <- nearPoints(CorrMat, input$corr_click, threshold = 300, maxpoints = 1)
     vals$ts_choice1 <- str_extract(vals$CorrMatClick$Var1, "ts\\d")
     vals$ts_choice2 <- str_extract(vals$CorrMatClick$Var2, "ts\\d")
   })
+  
+  observeEvent(input$lagged_corr_click, {
+    vals$laggedCorrMatClick <- nearPoints(laggedCorrMat, input$lagged_corr_click, threshold = 300, maxpoints = 1)
+    vals$l_ts_choice1 <- str_extract(vals$laggedCorrMatClick$Var1, "ts\\d")
+    vals$l_ts_choice2 <- str_extract(vals$laggedCorrMatClick$Var2, "ts\\d")
+  })
+  
   
   output$text1 <- renderPrint({ 
     print(optLags)
@@ -173,9 +182,9 @@ shinyServer(function(input, output) {
   })
   
   output$CCFPlot <- renderPlot({
-    if (length(vals$ts_choice1)==0) return(NULL)
-    ts1 <- time_series %>% select(get(vals$ts_choice1))
-    ts2 <- time_series %>% select(get(vals$ts_choice2))
+    if (length(vals$l_ts_choice1)==0) return(NULL)
+    ts1 <- time_series %>% select(get(vals$l_ts_choice1))
+    ts2 <- time_series %>% select(get(vals$l_ts_choice2))
     crossCorr <- ccf(ts1, ts2, lag.max = MaxLag, type = "correlation")
     # browser()
     cross_data <- data_frame(Lag = factor(crossCorr$lag[,1,1]), CCF = crossCorr$acf[,1,1])
