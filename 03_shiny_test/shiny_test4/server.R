@@ -52,15 +52,18 @@ OptimumLag <- function(ts1, ts2){
   index <- which.max(abs(ccorr))
   maxCorr <- ccorr[index]
   optLag <- lag[index]
-  critVal <- 1.96 / sqrt(length(ts1))
+  # рассчитываем порог как максимум из критического значени€ и 0.5
+  critVal <- max(1.96 / sqrt(length(ts1)), 0.5)
   # ¬рем€ отклика не может зависеть от будущих значений метрики
   if (optLag < 0) return(0)
-  # Ќет смысл примен€ть лаг, если коррел€ци€ незначима
+  # Ќет смысл примен€ть лаг, если коррел€ци€ незначительна
   if (abs(maxCorr) < critVal) return(0)
   return(optLag)
 }
 
+# переменна€ с временем отклика
 resp_time <- "ts1"
+# переменные с метриками, от которых может зависеть врем€ отклика
 metrics <- paste0("ts", 2:9)
 optLags <- c(ts1 = 0)
 
@@ -75,8 +78,8 @@ for (t in metrics){
   lagged_resid[t] <- lag(lagged_resid[[t]], n=optLags[t])
 }
 
-time_series %<>% mutate_each(
-  funs(baseline = Smoother, resid = Smoother(.) - (.)), -timestamp)
+# time_series %<>% mutate_each(
+#   funs(baseline = Smoother, resid = Smoother(.) - (.)), -timestamp)
 
 
 #resid <- time_series %>% select(contains("resid"))
@@ -195,14 +198,16 @@ shinyServer(function(input, output) {
       geom_bar(stat="identity", position = "identity") +
       scale_y_continuous(limits=c(-1, 1)) +
       xlab("¬ременной лаг") + ylab(" оэффициент кросс-коррел€ции") +
-      ggtitle("√рафик кросс-коррел€ции")
+      ggtitle("√рафик кросс-коррел€ции") +
+      theme(legend.position="none")
   })
   
   output$TSPlot <- renderPlot({
     if (length(vals$ts_choice1)==0) return(NULL)
     data <- time_series %>% select(timestamp, starts_with(vals$ts_choice1),
                                    starts_with(vals$ts_choice2))
-    ggtime <- gather(data, key = "type", value = "value", starts_with("ts")) %>%
+    ggtime <- gather(data, key = "type", value = "value",
+                     starts_with(vals$ts_choice1), starts_with(vals$ts_choice2)) %>%
       filter(!str_detect(type, "resid")) %>%
       mutate(tstype = str_extract(type, "ts\\d"))
     
@@ -215,10 +220,13 @@ shinyServer(function(input, output) {
 
   output$RPlot <- renderPlot({
     if (length(vals$ts_choice1)==0) return(NULL)
-    data <- time_series %>% select(timestamp, starts_with(vals$ts_choice1),
-                                   starts_with(vals$ts_choice2))
-    ggtime <- gather(data, key = "type", value = "value", starts_with("ts")) %>%
-      filter(str_detect(type, "resid"))
+    data <- resid %>% select(starts_with(vals$ts_choice1),
+                             starts_with(vals$ts_choice2))
+    # ---> TODO вы€снить, почему не работает mutate
+    # data %<>% mutate(timestamp = time_series$timestamp)
+    data$timestamp <- time_series$timestamp
+    ggtime <- gather(data, key = "type", value = "value",
+                     starts_with(vals$ts_choice1), starts_with(vals$ts_choice2))
     # draw plot
     ggplot(ggtime, aes(x=timestamp, y=value, color=type)) + geom_line() +
       ggtitle(paste("√рафик отклонений выбранных р€дов от базовой линии")) +
