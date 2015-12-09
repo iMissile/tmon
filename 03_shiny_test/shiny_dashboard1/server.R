@@ -6,6 +6,8 @@ library(ggplot2)
 library(magrittr)
 library(reshape2)
 library(stringr)
+library(xts)
+library(dygraphs)
 
 MaxLag <- 60
 
@@ -117,7 +119,11 @@ shinyServer(function(input, output) {
   
   vals <- reactiveValues(
     CorrMatClick = CorrMat %>% filter(FALSE),
-    laggedCorrMatClick = CorrMat %>% filter(FALSE)
+    laggedCorrMatClick = CorrMat %>% filter(FALSE),
+    ts_choice1 = resp_time,
+    ts_choice2 = metrics[1],
+    l_ts_choice1 = resp_time,
+    l_ts_choice2 = metrics[1]
   )
   
   CorrPlot <- function(CorrMat, dd){
@@ -186,7 +192,6 @@ shinyServer(function(input, output) {
   })
   
   output$CCFPlot <- renderPlot({
-    if (length(vals$l_ts_choice1)==0) return(NULL)
     ts1 <- resid %>% select(get(vals$l_ts_choice1))
     ts2 <- resid %>% select(get(vals$l_ts_choice2))
     currentLag <- optLags[vals$l_ts_choice2] - optLags[vals$l_ts_choice1]
@@ -203,34 +208,38 @@ shinyServer(function(input, output) {
       theme(legend.position="none")
   })
   
-  output$TSPlot <- renderPlot({
-    if (length(vals$ts_choice1)==0) return(NULL)
-    data <- time_series %>% select(timestamp, starts_with(vals$ts_choice1),
-                                   starts_with(vals$ts_choice2))
-    ggtime <- gather(data, key = "type", value = "value",
-                     starts_with(vals$ts_choice1), starts_with(vals$ts_choice2)) %>%
-      filter(!str_detect(type, "resid")) %>%
-      mutate(tstype = str_extract(type, "ts\\d"))
-    
-    # draw plot
-    ggplot(ggtime, aes(x=timestamp, y=value, color=type)) + geom_line() +
-      ggtitle("Выбранные временные ряды с базовыми линиями") +
-      facet_grid(tstype ~ .) + theme(legend.position = "bottom") +
-      labs(color = "Временной ряд")
+  output$dygraphTS1 <- renderDygraph({
+    ts1_val <- time_series %>% select(matches(vals$ts_choice1))
+    ts1_base <- baselines %>% select(matches(vals$ts_choice1))
+    names(ts1_base) <- "Базовая линия"
+    ts1 <- xts(cbind(ts1_val, ts1_base), order.by = time_series$timestamp)
+    # рисуем интерактивный график
+    dygraph(ts1, group="ts")
+  })
+  
+  output$dygraphTS2 <- renderDygraph({
+    ts2_val <- time_series %>% select(matches(vals$ts_choice2))
+    ts2_base <- baselines %>% select(matches(vals$ts_choice2))
+    names(ts2_base) <- "Базовая линия"
+    ts2 <- xts(cbind(ts2_val, ts2_base), order.by = time_series$timestamp)
+    # рисуем интерактивный график
+    dygraph(ts2, group="ts", height = 150)
   })
 
-  output$RPlot <- renderPlot({
-    if (length(vals$ts_choice1)==0) return(NULL)
-    data <- resid %>% select(starts_with(vals$ts_choice1),
-                             starts_with(vals$ts_choice2))
-    # ---> TODO выяснить, почему не работает mutate
-    # data %<>% mutate(timestamp = time_series$timestamp)
-    data$timestamp <- time_series$timestamp
-    ggtime <- gather(data, key = "type", value = "value",
-                     starts_with(vals$ts_choice1), starts_with(vals$ts_choice2))
-    # draw plot
-    ggplot(ggtime, aes(x=timestamp, y=value, color=type)) + geom_line() +
-      ggtitle(paste("График отклонений выбранных рядов от базовой линии")) +
-      theme(legend.position = "bottom") + labs(color = "Временной ряд")
+  output$dygraphRPlot <- renderDygraph({
+    data <- resid %>% select(matches(vals$ts_choice1),
+                             matches(vals$ts_choice2))
+    ts <- xts(data, order.by = time_series$timestamp)
+    dygraph(ts, group="ts", height = 150)
   })
+  
+  output$ts_table = renderDataTable({
+    time_series
+  }, options = list(pageLength = 5, searching=FALSE))
+  output$resid_table = renderDataTable({
+    resid
+  }, options = list(pageLength = 5, searching=FALSE))
+  output$base_table = renderDataTable({
+    baselines
+  }, options = list(pageLength = 5, searching=FALSE))
 })
