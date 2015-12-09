@@ -9,6 +9,8 @@ library(stringr)
 library(xts)
 library(dygraphs)
 
+source("dygraph_rus.R")
+
 MaxLag <- 60
 
 GenerateTimeSeries <- function(base, resid, func){
@@ -52,7 +54,7 @@ OptimumLag <- function(ts1, ts2){
   ccorr <- crossCorr$acf[,,1]
   lag <- crossCorr$lag[,,1]
   # находим номер максимального по модулю коэффициента для положительного лага
-  index <- which.max(ifelse(lag > 0, abs(ccorr), 0))
+  index <- which.max(ifelse(lag >= 0, abs(ccorr), 0))
   maxCorr <- ccorr[index]
   optLag <- lag[index]
   # рассчитываем порог как максимум из критического значения и 0.5
@@ -214,7 +216,8 @@ shinyServer(function(input, output) {
     names(ts1_base) <- "Базовая линия"
     ts1 <- xts(cbind(ts1_val, ts1_base), order.by = time_series$timestamp)
     # рисуем интерактивный график
-    dygraph(ts1, group="ts")
+    dygraph(ts1, group="ts") %>%
+      dyAxis("x", axisLabelFormatter = axisLabelFormatter)
   })
   
   output$dygraphTS2 <- renderDygraph({
@@ -223,14 +226,26 @@ shinyServer(function(input, output) {
     names(ts2_base) <- "Базовая линия"
     ts2 <- xts(cbind(ts2_val, ts2_base), order.by = time_series$timestamp)
     # рисуем интерактивный график
-    dygraph(ts2, group="ts", height = 150)
+    dygraph(ts2, group="ts") %>% dyRangeSelector(height = 20) %>%
+      dyAxis("x", axisLabelFormatter = axisLabelFormatter)
   })
 
   output$dygraphRPlot <- renderDygraph({
     data <- resid %>% select(matches(vals$ts_choice1),
                              matches(vals$ts_choice2))
     ts <- xts(data, order.by = time_series$timestamp)
-    dygraph(ts, group="ts", height = 150)
+    dygraph(ts, group="ts") %>% dyRangeSelector(height = 20) %>%
+      dyAxis("x", axisLabelFormatter = axisLabelFormatter) %>%
+      dyHighlight(highlightSeriesBackgroundAlpha = 0.3)
+  })
+  
+  output$lag_dygraphRPlot <- renderDygraph({
+    data <- lagged_resid %>% select(matches(vals$l_ts_choice1),
+                             matches(vals$l_ts_choice2))
+    ts <- xts(data, order.by = time_series$timestamp)
+    dygraph(ts, group="ts") %>% dyRangeSelector(height = 20) %>%
+      dyAxis("x", axisLabelFormatter = axisLabelFormatter) %>%
+      dyHighlight(highlightSeriesBackgroundAlpha = 0.3)
   })
   
   output$ts_table = renderDataTable({
