@@ -35,10 +35,10 @@ axisLabelFormatter <- "function formatAxisLabel(date, granularity) {
   }
   return 'тест';}"
 
-Recode <- function(str){
-  # str <- iconv(str, from="CP1251", to="UTF-8")
-  str <- iconv(str, from="CP1251", to="UTF-8")
-  return(str)
-}
+# Recode <- function(str){
+#   # str <- iconv(str, from="CP1251", to="UTF-8")
+#   str <- iconv(str, from="CP1251", to="UTF-8")
+#   return(str)
+# }
 
-axisLabelFormatter <- Recode(axisLabelFormatter)
+axisLabelFormatter <- enc2utf8(axisLabelFormatter)

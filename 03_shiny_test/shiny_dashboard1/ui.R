@@ -1,4 +1,5 @@
 library(shinydashboard)
+library(dygraphs)
 
 dashboardPage(
   dashboardHeader(title = "Тест ShinyDashboard"),

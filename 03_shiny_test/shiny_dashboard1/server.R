@@ -216,6 +216,7 @@ shinyServer(function(input, output) {
     names(ts1_base) <- "Базовая линия"
     ts1 <- xts(cbind(ts1_val, ts1_base), order.by = time_series$timestamp)
     # рисуем интерактивный график
+    # TODO добавить доверительные интервалы
     dygraph(ts1, group="ts") %>%
       dyAxis("x", axisLabelFormatter = axisLabelFormatter)
   })
