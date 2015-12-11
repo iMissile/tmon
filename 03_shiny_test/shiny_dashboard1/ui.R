@@ -13,6 +13,12 @@ dashboardPage(
     fluidRow(tabItems(
       # Наш dashboard
       tabItem(tabName = "dashboard",
+        box(
+          title = "Скользящая корреляция остатков",
+          status = "primary", solidHeader = TRUE,
+          collapsible = TRUE, width = 12,
+          dygraphOutput("rollCorr", height = "450px")
+        ),
         tabBox(title = "Коррелограмма", width = 12,
           tabPanel("Исходные ряды",
              plotOutput("CorrPlot", click = "corr_click", height = "500px"),

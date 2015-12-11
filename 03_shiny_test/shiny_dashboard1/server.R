@@ -8,10 +8,12 @@ library(reshape2)
 library(stringr)
 library(xts)
 library(dygraphs)
+library(TTR)
 
 source("dygraph_rus.R")
 
 MaxLag <- 60
+movWindow <- 100
 
 GenerateTimeSeries <- function(base, resid, func){
   TransForm <- function(x, transform, a = 0, b = 100){
@@ -82,6 +84,13 @@ lagged_resid <- resid
 for (t in metrics){
   lagged_resid[t] <- lag(lagged_resid[[t]], n=optLags[t])
 }
+
+runCorData <- data_frame(timestamp = time_series$timestamp)
+with(resid, {
+  for (t in metrics){
+    runCorData[t] <<- runCor(get(resp_time), get(t), n = movWindow)
+  }
+})
 
 # time_series %<>% mutate_each(
 #   funs(baseline = Smoother, resid = Smoother(.) - (.)), -timestamp)
@@ -208,6 +217,15 @@ shinyServer(function(input, output) {
       xlab("Временной лаг") + ylab("Коэффициент кросс-корреляции") +
       ggtitle("График кросс-корреляции") +
       theme(legend.position="none")
+  })
+  
+  output$rollCorr <- renderDygraph({
+    data <- xts(runCorData, order.by = runCorData$timestamp)
+    data$timestamp <- NULL
+    dygraph(data, group="ts") %>%
+      dyAxis("x", axisLabelFormatter = axisLabelFormatter) %>%
+      dyRangeSelector(height = 20) %>% dyLegend(width = 400) %>%
+      dyHighlight(highlightSeriesBackgroundAlpha = 0.3)
   })
   
   output$dygraphTS1 <- renderDygraph({
