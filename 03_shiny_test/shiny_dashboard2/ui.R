@@ -20,30 +20,46 @@ dashboardPage(
       tabItem(tabName = "dashboard",
         tabBox(title = "Коррелограмма", width = 12,
           tabPanel("Исходные ряды",
-             plotOutput("CorrPlot", click = "corr_click", height = "500px"),
-             verbatimTextOutput("ChoiceText"),
-             fluidRow(box(
-               title = "График выбранных временных рядов",
-               status = "primary", solidHeader = TRUE,
-               collapsible = TRUE, width = 12,
-               dygraphOutput("dygraphTS1", height = "150px"),
-               dygraphOutput("dygraphTS2", height = "160px")
-             )),
-             fluidRow(box(
-               title = "График отклонений выбранных рядов от базовой линии",
-               status = "primary", solidHeader = TRUE,
-               collapsible = TRUE, width = 12,
-               dygraphOutput("dygraphRPlot", height = "260px")
-             ))
+            p("Корреляционная матрица времени отклика (ts1) и других метрик (ts2-ts9)
+              без применения временных лагов. При выборе любой ячейки матрицы будет
+              показана более подробная информация о выбранных временных рядах."),
+            plotOutput("CorrPlot", click = "corr_click", height = "500px"),
+            verbatimTextOutput("ChoiceText"),
+            fluidRow(box(
+              title = "График выбранных временных рядов",
+              status = "primary", solidHeader = TRUE,
+              collapsible = TRUE, width = 12,
+              p("Базовая линия в данном примере рассчитывается при помощи
+              LOWESS-сглаживания исходных временных рядов."),
+              dygraphOutput("dygraphTS1", height = "150px"),
+              dygraphOutput("dygraphTS2", height = "160px")
+            )),
+            fluidRow(box(
+              title = "График отклонений выбранных рядов от базовой линии",
+              status = "primary", solidHeader = TRUE,
+              collapsible = TRUE, width = 12,
+              dygraphOutput("dygraphRPlot", height = "260px")
+            ))
           ),
           tabPanel("Оптимальные лаги",
+            p("Корреляционная матрица времени отклика (ts1) и других метрик (ts2-ts9)
+              с автоподбором оптимальных временных лагов (по максимальному абсолютному значению
+              коэффициента кросс-корреляции). При выборе любой ячейки матрицы будет
+              показана более подробная информация о выбранных временных рядах."),
             plotOutput("laggedCorrPlot", click = "lagged_corr_click", height = "500px"),
+            p("При помощи метода автоподбора оптимальных лагов были получены
+              следующие значения:"),
             verbatimTextOutput("text1"),
+            p("График коэффициентов кросс-корреляции выбранных метрик с выделенным
+              значением кросс-корреляции при текущих применённых лагах. Красным
+              цветом выделена область со статистически незначимыми коэффициентами."),
             plotOutput("CCFPlot"),
             fluidRow(box(
               title = "Скользящая корреляция остатков",
               status = "primary", solidHeader = TRUE,
               collapsible = TRUE, width = 12,
+              p("Графики скользящей корреляции всех метрик с временем отклика ts1
+                (временное окно - 100 наблюдений)."),
               dygraphOutput("rollCorr", height = "450px")
             )),
             fluidRow(box(
