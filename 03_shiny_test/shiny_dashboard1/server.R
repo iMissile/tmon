@@ -9,10 +9,11 @@ library(stringr)
 library(xts)
 library(dygraphs)
 library(TTR)
+library(RColorBrewer)
 
 source("dygraph_rus.R")
 
-MaxLag <- 60
+MaxLag <- 30
 movWindow <- 100
 
 GenerateTimeSeries <- function(base, resid, func){
@@ -85,13 +86,6 @@ for (t in metrics){
   lagged_resid[t] <- lag(lagged_resid[[t]], n=optLags[t])
 }
 
-runCorData <- data_frame(timestamp = time_series$timestamp)
-with(resid, {
-  for (t in metrics){
-    runCorData[t] <<- runCor(get(resp_time), get(t), n = movWindow)
-  }
-})
-
 # time_series %<>% mutate_each(
 #   funs(baseline = Smoother, resid = Smoother(.) - (.)), -timestamp)
 
@@ -120,6 +114,15 @@ names(lagged_resid) <- paste0(names(lagged_resid), "_lag_", optLags[names(lagged
 laggedCorrMat <- cor(lagged_resid, use = "pairwise.complete.obs")
 laggedCorrMat %<>% #reorder_cormat() %>% 
   round(2) %>% get_upper_tri() %>% melt(na.rm = TRUE)
+
+runCorData <- data_frame(timestamp = time_series$timestamp)
+with(lagged_resid, {
+  t1 <- names(lagged_resid) %>% str_subset(resp_time)
+  for (t in metrics){
+    t2 <- names(lagged_resid) %>% str_subset(t)
+    runCorData[t] <<- runCor(get(t1), get(t2), n = movWindow)
+  }
+})
 
 theme_set(theme_bw(base_size = 16))
 
@@ -222,10 +225,15 @@ shinyServer(function(input, output) {
   output$rollCorr <- renderDygraph({
     data <- xts(runCorData, order.by = runCorData$timestamp)
     data$timestamp <- NULL
-    dygraph(data, group="ts") %>%
+    crit <- 1.96 / sqrt(movWindow)
+    dygraph(data, group="ts", ylab=enc2utf8("—кольз€ща€ коррел€ци€ на ts1")) %>%
       dyAxis("x", axisLabelFormatter = axisLabelFormatter) %>%
       dyRangeSelector(height = 20) %>% dyLegend(width = 400) %>%
-      dyHighlight(highlightSeriesBackgroundAlpha = 0.3)
+      dyHighlight(highlightSeriesBackgroundAlpha = 0.3) %>%
+      dyOptions(colors = colorRampPalette(brewer.pal(11,"RdYlGn"))(length(metrics))) %>%
+      dyLimit(crit, label=enc2utf8("крит"), color="red") %>%
+      dyLimit(-crit, label=enc2utf8("крит"), color="red") %>%
+      dyShading(-crit, crit, color = "#FFE6E6", axis = "y")
   })
   
   output$dygraphTS1 <- renderDygraph({

@@ -13,12 +13,6 @@ dashboardPage(
     fluidRow(tabItems(
       # Наш dashboard
       tabItem(tabName = "dashboard",
-        box(
-          title = "Скользящая корреляция остатков",
-          status = "primary", solidHeader = TRUE,
-          collapsible = TRUE, width = 12,
-          dygraphOutput("rollCorr", height = "450px")
-        ),
         tabBox(title = "Коррелограмма", width = 12,
           tabPanel("Исходные ряды",
              plotOutput("CorrPlot", click = "corr_click", height = "500px"),
@@ -41,6 +35,12 @@ dashboardPage(
             plotOutput("laggedCorrPlot", click = "lagged_corr_click", height = "500px"),
             verbatimTextOutput("text1"),
             plotOutput("CCFPlot"),
+            fluidRow(box(
+              title = "Скользящая корреляция остатков",
+              status = "primary", solidHeader = TRUE,
+              collapsible = TRUE, width = 12,
+              dygraphOutput("rollCorr", height = "450px")
+            )),
             fluidRow(box(
               title = "График отклонений выбранных рядов от базовой линии (с лагами)",
               status = "primary", solidHeader = TRUE,
