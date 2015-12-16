@@ -35,6 +35,14 @@ dashboardPage(
               dygraphOutput("dygraphTS2", height = "160px")
             )),
             fluidRow(box(
+              title = "—кольз€ща€ коррел€ци€ остатков",
+              status = "primary", solidHeader = TRUE,
+              collapsible = TRUE, width = 12,
+              p("√рафики скольз€щей коррел€ции всех метрик с временем отклика ts1
+                (временное окно - 100 наблюдений)."),
+              dygraphOutput("rollCorr", height = "450px")
+            )),
+            fluidRow(box(
               title = "√рафик отклонений выбранных р€дов от базовой линии",
               status = "primary", solidHeader = TRUE,
               collapsible = TRUE, width = 12,
@@ -54,14 +62,6 @@ dashboardPage(
               значением кросс-коррел€ции при текущих применЄнных лагах.  расным
               цветом выделена область со статистически незначимыми коэффициентами."),
             plotOutput("CCFPlot"),
-            fluidRow(box(
-              title = "—кольз€ща€ коррел€ци€ остатков",
-              status = "primary", solidHeader = TRUE,
-              collapsible = TRUE, width = 12,
-              p("√рафики скольз€щей коррел€ции всех метрик с временем отклика ts1
-                (временное окно - 100 наблюдений)."),
-              dygraphOutput("rollCorr", height = "450px")
-            )),
             fluidRow(box(
               title = "√рафик отклонений выбранных р€дов от базовой линии (с лагами)",
               status = "primary", solidHeader = TRUE,

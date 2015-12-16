@@ -13,22 +13,40 @@ library(RColorBrewer)
 library(readr)
 
 source("dygraph_rus.R")
+source("baseline.R")
 
 MaxLag <- 30
-movWindow <- 50
+movWindow <- 100
 
-data <- read_csv("ttest1.csv", col_names = FALSE)
-names(data) <- c("minute", "arrival rate", "resp. time", "util 1", "util 2", "util 3")
-data$timestamp <- seq(ymd("2015-12-01"), by = "5 min", length.out = nrow(data))
+# data <- read_csv("ttest1.csv", col_names = FALSE)
+# names(data) <- c("minute", "arrival rate", "resp. time", "util 1", "util 2", "util 3")
+# data$timestamp <- seq(ymd("2015-12-01"), by = "5 min", length.out = nrow(data))
+# 
+# time_series <- data %>% select(timestamp, `resp. time`, `arrival rate`,
+#                                `util 1`, `util 2`, `util 3`)
+
+data <- read_csv("ttest_+50.csv", col_names = FALSE)
+names(data) <- c("num", "minute", "arrival rate", "resp. time", "util 1", "util 2", "util 3")
+data$timestamp <- seq(ymd("2015-11-30"), by = "5 min", length.out = nrow(data))
 
 time_series <- data %>% select(timestamp, `resp. time`, `arrival rate`,
                                `util 1`, `util 2`, `util 3`)
 
-Smoother <- function(y){
-  return(lowess(y, f=0.01)$y)
-}
+# переменная с временем отклика
+resp_time <- "resp. time"
+# переменные с метриками, от которых может зависеть время отклика
+metrics <- c("arrival rate", "util 1", "util 2", "util 3")
+optLags <- c(`resp. time` = 0)
 
-baselines <- time_series %>% mutate_each(funs(Smoother), -timestamp)
+baselines <- time_series
+
+for (t in c(resp_time, metrics)){
+  print(t)
+  tmp <- data_frame(timestamp = time_series$timestamp,
+                    value = time_series[[t]])
+  tmp %<>% head(2016*4)
+  baselines[t] <- baseline(tmp, time_series$timestamp)
+}
 
 resid <- select(baselines, -timestamp) - select(time_series, -timestamp)
 
@@ -48,12 +66,6 @@ OptimumLag <- function(ts1, ts2){
   if (abs(maxCorr) < critVal) return(0)
   return(optLag)
 }
-
-# переменная с временем отклика
-resp_time <- "resp. time"
-# переменные с метриками, от которых может зависеть время отклика
-metrics <- c("arrival rate", "util 1", "util 2", "util 3")
-optLags <- c(`resp. time` = 0)
 
 with(resid, {
   for (t in metrics){
