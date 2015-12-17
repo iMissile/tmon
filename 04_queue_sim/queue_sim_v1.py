@@ -2,19 +2,22 @@
 import math
 import datetime
 import numpy as np
+import pandas as pd
 import simpy
 import random
 import matplotlib.pyplot as plt
-import plotly.plotly as py
-from scipy import stats
-import csv
+#import plotly.plotly as py
+#from scipy import stats
+#import csv
 import os
 
-
+abspath = os.path.abspath(__file__)
+dname = os.path.dirname(abspath)
+os.chdir(dname)
 ## нужно прописать корректные имена входного и выходного файлов, а также
 ## названия рабочей директории, где они находятся
-os.chdir('C:\\Users\\akononyhin\\Canopy\\My Scripts\\')
-input_file='LoadProfile_data.csv'
+os.chdir('../90_load_profile_data/')
+input_file='LoadProfile_final.csv'
 output_file='sim_output.csv'
 
 iter_nums=2
@@ -70,19 +73,24 @@ for i in range(len(arr_time)):
     arr_time[i,1]=arrival_interval
 '''
 #os.chdir('C:\\Users\\akononyhin\\Canopy\\My Scripts\\')
-i=0
-with open(input_file) as csvfile:
-    spamreader = csv.reader(csvfile, delimiter=',', quotechar='|')
-    for row in spamreader:
-        arr_rate[i,0]=row[0]
-        #arr_rate[i,1]=(1/8)*float(row[1])/90
-        #arr_rate[i,1]=1.1479*float(row[1])/90/8
-        arr_rate[i,1]=270*float(row[1])/90/8
-        i+=1
+arr_rate = pd.read_csv(input_file)
+arr_rate = arr_rate.as_matrix()
+arr_rate[:,1] = arr_rate[:,1]*270/90/8
+arr_rate[:,0] = list(range(10080))
+#i=0
+#with open(input_file) as csvfile:
+#    data = csv.reader(csvfile, delimiter=',', quotechar='|')
+#    fields = data.next()
+#    for row in data:
+#        arr_rate[i,0]=row[0]
+#        #arr_rate[i,1]=(1/8)*float(row[1])/90
+#        #arr_rate[i,1]=1.1479*float(row[1])/90/8
+#        arr_rate[i,1]=270*float(row[1])/90/8
+#        i+=1
       
      
 for w in range(iter_nums):
-    print datetime.datetime.now().time()
+    print(datetime.datetime.now().time())
     print('Simulation number %d starts' % (w))
         
     a=np.zeros((N, 9))
@@ -166,7 +174,7 @@ for w in range(iter_nums):
     t=0
     k_prev=0
     i_last=0
-    print 'env.process starts'
+    print('env.process starts')
     for i in range(N):  #N - cars count
         #env.process(car(env, 'Car %d' % i, bcs, i*2, 5))
         
@@ -210,8 +218,8 @@ for w in range(iter_nums):
         #print arrival_interval_1
         #print arrival_rate_1
         t=t+random.expovariate(arrival_rate_1)
-    print 'env.process ends'
-    print datetime.datetime.now().time()
+    print('env.process ends')
+    print(datetime.datetime.now().time())
     env.run()
     
     temp = a.view(np.ndarray)
@@ -370,7 +378,7 @@ for w in range(iter_nums):
         #print in_queue
         avg_queue[w,i]=sum(in_queue[i][:,0]*in_queue[i][:,1])/sum(in_queue[i][:,1])
   
-        print avg_util[w,i],avg_queue[w,i]
+        print(avg_util[w,i],avg_queue[w,i])
   
 
     max_t=int(a[len(a)-1,8])
@@ -393,7 +401,7 @@ for w in range(iter_nums):
         k=l
      
     #print a_aggr
-    print sum(a_aggr[w,:,1]*a_aggr[w,:,2])/sum(a_aggr[w,:,2])
+    print(sum(a_aggr[w,:,1]*a_aggr[w,:,2])/sum(a_aggr[w,:,2]))
     #plt.plot(a_aggr[w,:,1])
     a_aggr_all=a_aggr_all+a_aggr[w,:,:]/iter_nums  
          
@@ -420,7 +428,7 @@ for w in range(iter_nums):
         in_service_aggr_all[i,:,:]=in_service_aggr_all[i,:,:]+in_service_aggr[w,i,:,:]/iter_nums
 
     #print sum(in_service_1_aggr[:,2]*in_service_1_aggr[:,1])/sum(in_service_1_aggr[:,2])
-    print np.mean(in_service_aggr[w,0,:,1])
+    print(np.mean(in_service_aggr[w,0,:,1]))
 
     
    
@@ -461,8 +469,8 @@ plt.plot((1.0/70.0)*arr_rate[0:10080,1],'k-', lw=2)
 plt.show()
 
 
-print 'all simulations end'
-print datetime.datetime.now().time()
+print('all simulations end')
+print(datetime.datetime.now().time())
 
 
 ofile  = open(output_file, "w")
