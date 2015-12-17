@@ -241,6 +241,11 @@ shinyServer(function(input, output, session) {
     print(optLags)
   })
   
+  output$textRoll <- renderText({ 
+    print(paste("Графики скользящей корреляции всех метрик с временем отклика
+                (временное окно -", movWindow, "наблюдений)."))
+  })
+  
   output$ChoiceText <- renderPrint({
     if (length(vals$CorrMatClick$Var1)==0){
       cat(paste("Коэффициент корреляции не выбран"))
@@ -248,8 +253,8 @@ shinyServer(function(input, output, session) {
       cat("Выбран коэффициент корреляции между рядами",
             vals$CorrMatClick$Var1, "и", vals$CorrMatClick$Var2)
     }
-    print(vals$ts_choice1)
-    print(vals$ts_choice2)
+#     print(vals$ts_choice1)
+#     print(vals$ts_choice2)
   })
   
   output$CCFPlot <- renderPlot({
