@@ -41,11 +41,20 @@ arrival_rate["value"] = arrival_rate["value"] * 0.375
 # Определяем время начала симуляции
 beginTime = min(arrival_rate["timestamp"])
 # Будем моделировать 5 недель
-endTime = beginTime + pd.Timedelta(weeks = 5)
+num_weeks = 5
+endTime = beginTime + pd.Timedelta(weeks = num_weeks)
 # Считаем количество минут в симуляции
 simTime = (endTime- beginTime).days * 24 * 60
 # Индексирем по времени
 arrival_rate.set_index("timestamp", inplace = True)
+
+arr_data = pd.DataFrame()
+for i in range(num_weeks):
+    tmp = pd.DataFrame(arrival_rate.value)
+    tmp.index = arrival_rate.index + pd.Timedelta(weeks = i)
+    arr_data = pd.concat([arr_data, tmp])
+    
+arrival_rate = arr_data
 
 '''
 def ApplyToServers(function, servers):
@@ -137,3 +146,17 @@ print("Максимальное время отклика:")
 print(resp_time_df.response.max())
 print("Минимальное время отклика:")
 print(resp_time_df.response.min())
+
+resp_time_df = df.groupby("num")
+resp_time_df = resp_time_df.agg({"arrive": "min",
+                                 "wait": "sum",
+                                 "service": "sum"})
+resp_time_df["num"] = resp_time_df.index
+resp_time_df = resp_time_df.assign(response = resp_time_df.wait + resp_time_df.service)
+resp_time_df["timestamp"] = pd.to_timedelta(resp_time_df.arrive, "m") + beginTime
+resp_time_df.set_index("timestamp", inplace = True)
+resp_time_df = resp_time_df[["num", "wait", "service", "response"]]
+
+resp_time_bin_df = (resp_time_df[["wait", "service", "response"]]
+                    .resample("5T", how="mean"))
+                    
