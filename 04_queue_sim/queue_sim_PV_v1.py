@@ -17,7 +17,7 @@ from random import expovariate
 # Итераторы (для метода Round-robin)
 import itertools
 import os
-import datetime
+import time
 
 
 servers = [["Web Server 1"], ["App Server 1", "App Server 2"], ["Database Server 1"]]
@@ -36,6 +36,8 @@ input_file = "LoadProfile_final.csv"
 arrival_rate = pd.read_csv(input_file)
 # Парсим строки в столбце timestamp во временной формат
 arrival_rate["timestamp"] = pd.to_datetime(arrival_rate["timestamp"])
+# Масштабируем профиль нагрузки (*270/90/8)
+arrival_rate["value"] = arrival_rate["value"] * 0.375
 # Определяем время начала симуляции
 beginTime = min(arrival_rate["timestamp"])
 # Будем моделировать 5 недель
@@ -107,18 +109,31 @@ def server_request(env, num, data):
             # случайное время обработки запроса (эксп. распределение)
             service = expovariate(1.0 / service_time[tier][server_num])
             # записываем всю информацию об обработке запроса на сервере
-            info = {"num": num, "tier": tier, "server_num": server_num,
-                    "arrive": arrive, "wait": wait, "service": service}
+            info = [num, tier, server_num, arrive, wait, service]
             data.append(info)
             yield env.timeout(service)
     
-print(datetime.datetime.now().time())
+print("Начинаем симуляцию.", flush = True)
+t = time.process_time()
 data = []
 env = simpy.Environment()
 server_tiers = MakeSimpyResource(servers, env)
 env.process(source(env, data))
 env.run(until = simTime)
-print(datetime.datetime.now().time())
+sim_elapsed_time = round(time.process_time() - t, 1)
+print("Симуляция заняла", sim_elapsed_time, "секунд")
+
 
 df = pd.DataFrame(data)
-df = df.reindex(columns = ["num", "tier", "server_num", "arrive", "wait", "service"])
+df.columns = ["num", "tier", "server_num", "arrive", "wait", "service"]
+#df = df.reindex(columns = ["num", "tier", "server_num", "arrive", "wait", "service"])
+
+resp_time_df = df[["wait", "service"]].groupby(df["num"]).sum()
+resp_time_df["response"] = resp_time_df["wait"] + resp_time_df["service"]
+
+print("Среднее время отклика:")
+print(resp_time_df.response.mean())
+print("Максимальное время отклика:")
+print(resp_time_df.response.max())
+print("Минимальное время отклика:")
+print(resp_time_df.response.min())
