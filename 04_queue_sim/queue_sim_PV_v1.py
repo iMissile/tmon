@@ -16,12 +16,15 @@ import pandas as pd
 from random import expovariate
 # Итераторы (для метода Round-robin)
 import itertools
+import numpy as np
 import os
 import time
 
 
-servers = [["Web Server 1"], ["App Server 1", "App Server 2"], ["Database Server 1"]]
-service_time = [[0.03], [0.05, 0.04], [0.05]]
+servers = [["Web Server 1"], ["App Server 1", "App Server 2", "App Server 3"],
+           ["DB Server 1", "DB Server 2"], ["S1", "S2", "S3", "S4"]]
+service_time = [[0.035], [0.03, 0.03, 0.25], [0.06, 0.065],
+                [0.25, 0.04, 0.04, 0.04]]
 
 # меняем текущую директорию на папку со скриптом
 abspath = os.path.abspath(__file__)
@@ -76,6 +79,12 @@ def MakeSimpyResource(servers, env):
 def RoundRobin(n):
     # Возвращаем итератор, кторый циклически повторяет значения от 1 до n
     return itertools.cycle(range(n))
+    
+def MinQueue(tier):
+    # Рассчитываем длину очереди для каждого сервера на уровне tier
+    queue_count = map(lambda r: r.count + len(r.queue), server_tiers[tier])
+    # возвращаем номер сервера с минимальной очередью
+    yield(np.argmin(list(queue_count)))
 
 # Делаем итераторы по серверам для каждого уровня
 RR = []
@@ -108,6 +117,8 @@ def server_request(env, num, data):
     for tier in range(len(servers)):
         # выбираем номер сервера на нужном уровне с помощью RoundRobin
         server_num = next(RR[tier])
+        # выбираем номер сервера на нужном уровне по минимальной очереди
+        # server_num = next(MinQueue(tier))
         with server_tiers[tier][server_num].request() as req:
             # время поступления запроса
             arrive = env.now
@@ -117,35 +128,40 @@ def server_request(env, num, data):
             wait = env.now - arrive
             # случайное время обработки запроса (эксп. распределение)
             service = expovariate(1.0 / service_time[tier][server_num])
+            # чило запросов в очереди
+            queue = len(server_tiers[tier][server_num].queue)
             # записываем всю информацию об обработке запроса на сервере
-            info = [num, tier, server_num, arrive, wait, service]
+            info = [num, tier, server_num, arrive, wait, service, queue]
             data.append(info)
             yield env.timeout(service)
     
 print("Начинаем симуляцию.", flush = True)
+# Засекаем время
 t = time.process_time()
+#Данные симуляции будем сохранять в списрк
 data = []
+
 env = simpy.Environment()
+# Создаём ресурсы SimPy для каждого сервера
 server_tiers = MakeSimpyResource(servers, env)
+# Определяем процесс генерации запросов
 env.process(source(env, data))
+# Начинаем симуляцию
 env.run(until = simTime)
 sim_elapsed_time = round(time.process_time() - t, 1)
 print("Симуляция заняла", sim_elapsed_time, "секунд")
 
-
+# Преобразовываем в формат Pandas
 df = pd.DataFrame(data)
-df.columns = ["num", "tier", "server_num", "arrive", "wait", "service"]
+df.columns = ["num", "tier", "server_num", "arrive", "wait", "service", "queue"]
 #df = df.reindex(columns = ["num", "tier", "server_num", "arrive", "wait", "service"])
 
+'''
+# Суммируем время ожидания и время выполения каждого запроса по всем уровням
 resp_time_df = df[["wait", "service"]].groupby(df["num"]).sum()
+# И рассчитываем общее время отклика
 resp_time_df["response"] = resp_time_df["wait"] + resp_time_df["service"]
-
-print("Среднее время отклика:")
-print(resp_time_df.response.mean())
-print("Максимальное время отклика:")
-print(resp_time_df.response.max())
-print("Минимальное время отклика:")
-print(resp_time_df.response.min())
+'''
 
 resp_time_df = df.groupby("num")
 resp_time_df = resp_time_df.agg({"arrive": "min",
@@ -157,6 +173,14 @@ resp_time_df["timestamp"] = pd.to_timedelta(resp_time_df.arrive, "m") + beginTim
 resp_time_df.set_index("timestamp", inplace = True)
 resp_time_df = resp_time_df[["num", "wait", "service", "response"]]
 
+print("Среднее время отклика:")
+print(resp_time_df.response.mean())
+print("Максимальное время отклика:")
+print(resp_time_df.response.max())
+print("Минимальное время отклика:")
+print(resp_time_df.response.min())
+
+# Среднее время отклика по пятиминутным интервалам
 resp_time_bin_df = (resp_time_df[["wait", "service", "response"]]
                     .resample("5T", how="mean"))
                     
